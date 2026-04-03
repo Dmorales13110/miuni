@@ -13,7 +13,7 @@ import {
 import { register } from '../../../utils/api';
 import './Register.css';
 
-const Register = ({ setAuth, setUserId }) => {
+const Register = ({ setAuth, setUserId, setUsername: setUserUsername }) => {
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -54,6 +54,7 @@ const Register = ({ setAuth, setUserId }) => {
             if (res.data.success) {
                 setAuth(true);
                 setUserId(res.data.user_id);
+                setUserUsername(res.data.username);
                 navigate('/');
             } else {
                 setError(res.data.error || 'No se pudo crear la cuenta');
@@ -88,7 +89,8 @@ const Register = ({ setAuth, setUserId }) => {
             </div>
 
             <div className="register-card">
-                <div className="brand-side">
+                {/* Lado izquierdo - Gradiente Morado/Azul */}
+                <div className="brand-side" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
                     <div className="brand-content">
                         <div className="brand-icon">
                             <IconConfetti size={48} stroke={1.5} />
@@ -113,9 +115,10 @@ const Register = ({ setAuth, setUserId }) => {
                     </div>
                 </div>
 
+                {/* Lado derecho - Formulario */}
                 <div className="form-side">
                     <div className="form-header">
-                        <div className="welcome-badge">
+                        <div className="welcome-badge" style={{ background: '#F3E8FF', color: '#764ba2' }}>
                             <IconCalculator size={18} />
                             <span>¡Nueva cuenta!</span>
                         </div>
@@ -206,7 +209,12 @@ const Register = ({ setAuth, setUserId }) => {
                             </div>
                         )}
 
-                        <button type="submit" disabled={loading} className="submit-btn">
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="submit-btn"
+                            style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)' }}
+                        >
                             {loading ? (
                                 <div className="spinner"></div>
                             ) : (
@@ -219,7 +227,7 @@ const Register = ({ setAuth, setUserId }) => {
                     </form>
 
                     <div className="login-link">
-                        ¿Ya tienes cuenta? <Link to="/login">Iniciar sesión</Link>
+                        ¿Ya tienes cuenta? <Link to="/login" style={{ color: '#667eea' }}>Iniciar sesión</Link>
                     </div>
                 </div>
             </div>

@@ -14,7 +14,7 @@ import {
 import { login, getTestUsers } from '../../../utils/api';
 import './Login.css';
 
-const Login = ({ setAuth, setUserId }) => {
+const Login = ({ setAuth, setUserId, setUsername }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -37,6 +37,7 @@ const Login = ({ setAuth, setUserId }) => {
             if (res.data.success) {
                 setAuth(true);
                 setUserId(res.data.user_id);
+                setUsername(res.data.username);
                 navigate('/');
             } else {
                 setError(res.data.error || 'Usuario o contraseña incorrectos');
@@ -60,7 +61,7 @@ const Login = ({ setAuth, setUserId }) => {
             </div>
 
             <div className="login-card">
-                <div className="brand-side">
+                <div className="brand-side" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
                     <div className="brand-content">
                         <div className="brand-icon">
                             <IconCalculator size={48} stroke={1.5} />
@@ -89,7 +90,7 @@ const Login = ({ setAuth, setUserId }) => {
 
                 <div className="form-side">
                     <div className="form-header">
-                        <div className="welcome-badge">
+                        <div className="welcome-badge" style={{ background: '#F3E8FF', color: '#764ba2' }}>
                             <IconRocket size={18} />
                             <span>¡Bienvenido de vuelta!</span>
                         </div>
@@ -108,7 +109,9 @@ const Login = ({ setAuth, setUserId }) => {
                                     setEmail(user.username);
                                     setPassword(user.password);
                                 }}>
-                                    <div className="test-user-avatar">{user.username[0].toUpperCase()}</div>
+                                    <div className="test-user-avatar" style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)' }}>
+                                        {user.username[0].toUpperCase()}
+                                    </div>
                                     <div className="test-user-info">
                                         <strong>{user.username}</strong>
                                         <span>Contraseña: {user.password}</span>
@@ -148,7 +151,7 @@ const Login = ({ setAuth, setUserId }) => {
                             />
                         </div>
 
-                        <button type="submit" disabled={loading} className="submit-btn">
+                        <button type="submit" disabled={loading} className="submit-btn" style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)' }}>
                             {loading ? (
                                 <div className="spinner"></div>
                             ) : (
@@ -161,7 +164,7 @@ const Login = ({ setAuth, setUserId }) => {
                     </form>
 
                     <div className="register-link">
-                        ¿No tienes cuenta? <Link to="/register">Crear cuenta gratis</Link>
+                        ¿No tienes cuenta? <Link to="/register" style={{ color: '#764ba2' }}>Crear cuenta gratis</Link>
                     </div>
                 </div>
             </div>
