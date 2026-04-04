@@ -24,20 +24,20 @@ import {
     resetProgressForTab,
     loadActiveTab,
     saveActiveTab,
-    getUserStats
+    loadUserProgress,
+    saveUserProgress
 } from '../../utils/api';
 import ExpandedExercise from '../../components/ExpandedExercise';
 import './Dashboard.css';
 
 const Dashboard = ({ userId, setAuth, username }) => {
     const [exercises, setExercises] = useState([]);
-    const [progress, setProgress] = useState({});
+    const [progressByTab, setProgressByTab] = useState({});
     const [selectedIndex, setSelectedIndex] = useState(null);
     const [pendingIncorrectIndex, setPendingIncorrectIndex] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(0);
     const [savedStatus, setSavedStatus] = useState('');
-    const [stats, setStats] = useState({ totalCompleted: 0, tabsProgress: {} });
     const navigate = useNavigate();
 
     const generateRandomNumber = () => {
@@ -64,29 +64,31 @@ const Dashboard = ({ userId, setAuth, username }) => {
         setLoading(true);
 
         try {
-            const exercisesRes = await loadExercisesForTab(tabId);
+            const exercisesRes = await loadExercisesForTab(tabId, username);
             if (exercisesRes.data && exercisesRes.data.exercises) {
                 setExercises(exercisesRes.data.exercises);
             } else {
                 const newEx = generateExercises();
                 setExercises(newEx);
-                await saveExercisesForTab(tabId, newEx);
+                await saveExercisesForTab(tabId, newEx, username);
             }
 
-            const progressRes = await getProgressForTab(tabId);
+            const progressRes = await getProgressForTab(tabId, username);
             if (progressRes.data && progressRes.data.progress) {
-                setProgress(progressRes.data.progress);
-            }
-
-            if (username) {
-                const userStats = getUserStats(username);
-                setStats(userStats);
+                setProgressByTab(prev => ({ ...prev, [tabId]: progressRes.data.progress }));
+            } else if (username) {
+                const local = loadUserProgress(username, tabId);
+                if (local) setProgressByTab(prev => ({ ...prev, [tabId]: local }));
             }
 
         } catch (error) {
             console.error('Error cargando datos:', error);
             const newEx = generateExercises();
             setExercises(newEx);
+            if (username) {
+                const local = loadUserProgress(username, tabId);
+                if (local) setProgressByTab(prev => ({ ...prev, [tabId]: local }));
+            }
         }
 
         setLoading(false);
@@ -110,16 +112,31 @@ const Dashboard = ({ userId, setAuth, username }) => {
         setActiveTab(tabId);
         setSelectedIndex(null);
         setPendingIncorrectIndex(null);
-        await loadTabData(tabId);
+
+        // Si el tab ya fue cargado antes, solo recargar ejercicios (el progreso ya está en caché)
+        if (progressByTab[tabId] !== undefined) {
+            try {
+                const exercisesRes = await loadExercisesForTab(tabId, username);
+                if (exercisesRes.data && exercisesRes.data.exercises) {
+                    setExercises(exercisesRes.data.exercises);
+                }
+            } catch (error) {
+                console.error('Error cargando ejercicios:', error);
+            }
+        } else {
+            await loadTabData(tabId);
+        }
     };
 
     const handleResetTab = async () => {
         if (window.confirm(`¿Reiniciar todo el progreso de la Tab ${activeTab + 1}? Se generarán nuevos ejercicios.`)) {
             setLoading(true);
+            setProgressByTab(prev => ({ ...prev, [activeTab]: {} }));
+            if (username) saveUserProgress(username, activeTab, {});
             const newExercises = generateExercises();
             setExercises(newExercises);
-            await saveExercisesForTab(activeTab, newExercises);
-            await resetProgressForTab(activeTab);
+            await saveExercisesForTab(activeTab, newExercises, username);
+            await resetProgressForTab(activeTab, username);
             await loadTabData(activeTab);
             setSelectedIndex(null);
             setPendingIncorrectIndex(null);
@@ -129,14 +146,15 @@ const Dashboard = ({ userId, setAuth, username }) => {
         }
     };
 
-    // Reiniciar todas las tabs
     const handleResetAll = async () => {
         if (window.confirm('¿Reiniciar TODO el progreso de TODAS las tabs? Se generarán nuevos ejercicios para todas.')) {
             setLoading(true);
+            setProgressByTab({});
             for (let i = 0; i < 3; i++) {
+                if (username) saveUserProgress(username, i, {});
                 const newExercises = generateExercises();
-                await saveExercisesForTab(i, newExercises);
-                await resetProgressForTab(i);
+                await saveExercisesForTab(i, newExercises, username);
+                await resetProgressForTab(i, username);
             }
             await loadTabData(activeTab);
             setSelectedIndex(null);
@@ -153,6 +171,8 @@ const Dashboard = ({ userId, setAuth, username }) => {
         navigate('/login');
     };
 
+    const progress = progressByTab[activeTab] || {};
+
     const handleExerciseClick = (index) => {
         if (progress[index] === true) return;
         if (pendingIncorrectIndex !== null) return;
@@ -164,12 +184,14 @@ const Dashboard = ({ userId, setAuth, username }) => {
     };
 
     const handleCorrectAnswer = async (index) => {
-        await updateProgressForTab(activeTab, index, true);
-        setProgress(prev => ({ ...prev, [index]: true }));
+        const updated = { ...(progressByTab[activeTab] || {}), [index]: true };
+        setProgressByTab(prev => ({ ...prev, [activeTab]: updated }));
+        if (username) saveUserProgress(username, activeTab, updated);
 
-        if (username) {
-            const userStats = getUserStats(username);
-            setStats(userStats);
+        try {
+            await updateProgressForTab(activeTab, index, true, username);
+        } catch (error) {
+            console.error('Error guardando progreso en DB:', error);
         }
 
         setSelectedIndex(null);
@@ -183,12 +205,14 @@ const Dashboard = ({ userId, setAuth, username }) => {
     };
 
     const handleRetryCorrect = async (index) => {
-        await updateProgressForTab(activeTab, index, true);
-        setProgress(prev => ({ ...prev, [index]: true }));
+        const updated = { ...(progressByTab[activeTab] || {}), [index]: true };
+        setProgressByTab(prev => ({ ...prev, [activeTab]: updated }));
+        if (username) saveUserProgress(username, activeTab, updated);
 
-        if (username) {
-            const userStats = getUserStats(username);
-            setStats(userStats);
+        try {
+            await updateProgressForTab(activeTab, index, true, username);
+        } catch (error) {
+            console.error('Error guardando progreso en DB:', error);
         }
 
         setPendingIncorrectIndex(null);
@@ -199,6 +223,12 @@ const Dashboard = ({ userId, setAuth, username }) => {
 
     const completedCount = Object.values(progress).filter(v => v === true).length;
     const progressPercentage = (completedCount / 8) * 100;
+
+    const tabsCompleted = [0, 1, 2].map(i =>
+        Object.values(progressByTab[i] || {}).filter(v => v === true).length
+    );
+    const totalCompleted = tabsCompleted.reduce((a, b) => a + b, 0);
+    const totalProgress = Math.round((totalCompleted / 24) * 100);
 
     const tabNames = ['Nivel 1', 'Nivel 2', 'Nivel 3'];
     const tabColors = ['#667eea', '#f093fb', '#4ECDC4'];
@@ -227,8 +257,6 @@ const Dashboard = ({ userId, setAuth, username }) => {
         );
     }
 
-    const totalProgress = Math.round((stats.totalCompleted / 24) * 100);
-
     return (
         <div className="dashboard-container">
             <div className="bg-shapes">
@@ -255,7 +283,7 @@ const Dashboard = ({ userId, setAuth, username }) => {
                             <IconProgressCheck size={18} />
                             <div className="stats-info">
                                 <span className="stats-label">Progreso total</span>
-                                <span className="stats-value">{stats.totalCompleted}/24</span>
+                                <span className="stats-value">{totalCompleted}/24</span>
                             </div>
                         </div>
 
@@ -300,7 +328,7 @@ const Dashboard = ({ userId, setAuth, username }) => {
 
                 <div className="tabs-container">
                     {tabNames.map((name, idx) => {
-                        const tabCompleted = stats.tabsProgress[idx] || 0;
+                        const tabCompleted = tabsCompleted[idx];
                         const isActive = activeTab === idx;
                         return (
                             <button
@@ -413,7 +441,7 @@ const Dashboard = ({ userId, setAuth, username }) => {
                     </div>
                 )}
 
-                {stats.totalCompleted === 24 && (
+                {totalCompleted === 24 && (
                     <div className="final-celebration">
                         <div className="final-celebration-content">
                             <div className="confetti">🎉</div>
